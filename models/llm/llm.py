@@ -189,13 +189,16 @@ class LmstudioLargeLanguageModel(LargeLanguageModel):
             # Use requests to check connection
             response = requests.get(
                 urljoin(base_url, "v1/models"),
-                timeout=5
+                timeout=10  # Increased timeout for remote URLs
             )
             
             if response.status_code != 200:
                 raise CredentialsValidateFailedError(
                     f"Failed to connect to LM Studio server: {response.status_code}"
                 )
+        except requests.exceptions.RequestException as ex:
+            # Handle network errors more specifically
+            raise CredentialsValidateFailedError(f"Connection error: {str(ex)}")
         except Exception as ex:
             raise CredentialsValidateFailedError(str(ex))
 
@@ -241,8 +244,13 @@ class LmstudioLargeLanguageModel(LargeLanguageModel):
             mode = credentials.get("mode", "chat")
             
             # Configure OpenAI-compatible client for LM Studio
+            # Import first to avoid circular imports
             from openai import OpenAI
-            client = OpenAI(base_url=f"{base_url}v1", api_key="lm-studio")
+            import os
+            
+            # Set the base URL through environment variables (more compatible with remote URLs)
+            os.environ["OPENAI_BASE_URL"] = f"{base_url}v1"
+            client = OpenAI(api_key="lm-studio")  # No need to pass base_url directly
             
             if mode == "chat":
                 # Process chat messages

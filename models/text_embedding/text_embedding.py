@@ -40,70 +40,84 @@ class LmstudioEmbeddingModel(TextEmbeddingModel):
     Model class for LM Studio text embedding model.
     """
 
-    def _invoke(
+    def _generate(
         self,
         model: str,
         credentials: dict,
         texts: list[str],
+        model_parameters: dict,
         user: Optional[str] = None,
-        input_type: EmbeddingInputType = EmbeddingInputType.DOCUMENT,
-    ) -> TextEmbeddingResult:
+    ) -> list[list[float]]:
         """
-        Invoke text embedding model
+        Generate embeddings for texts
 
         :param model: model name
         :param credentials: model credentials
         :param texts: texts to embed
-        :param user: unique user id
-        :param input_type: input type
-        :return: embeddings result
+        :param model_parameters: model parameters
+        :param user: user identifier
+        :return: list of embeddings
         """
-        # Set up base URL
-        base_url = credentials.get("base_url", "")
-        if base_url and not base_url.endswith("/"):
-            base_url += "/"
-        
-        # Configure OpenAI-compatible client for LM Studio
-        from openai import OpenAI
-        client = OpenAI(base_url=f"{base_url}v1", api_key="lm-studio")
-        
-        # Calculate tokens before potentially truncating
-        embedding_used_tokens = self.get_num_tokens(model, credentials, texts)
-        used_tokens = sum(embedding_used_tokens)
-        
-        # Process embeddings
-        context_size = self._get_context_size(model, credentials)
-        processed_texts = []
-        
-        # Truncate texts if they exceed context size
-        for text, num_tokens in zip(texts, embedding_used_tokens):
-            if num_tokens >= context_size:
-                cutoff = int(np.floor(len(text) * (context_size / num_tokens)))
-                processed_texts.append(text[0:cutoff])
-            else:
-                processed_texts.append(text)
-        
-        # Get embeddings through OpenAI compatible endpoint
         try:
+            # Setup base url
+            base_url = credentials.get("base_url", "")
+            if base_url and not base_url.endswith("/"):
+                base_url += "/"
+
+            # Configure OpenAI-compatible client for LM Studio
+            from openai import OpenAI
+            import os
+            
+            # Set the base URL through environment variables (more compatible with remote URLs)
+            os.environ["OPENAI_BASE_URL"] = f"{base_url}v1"
+            client = OpenAI(api_key="lm-studio")  # No need to pass base_url directly
+
+            # Call OpenAI API to get embeddings
             response = client.embeddings.create(
                 model=model,
-                input=processed_texts,
+                input=texts,
                 encoding_format="float"
             )
-            
+
             # Extract embeddings from response
-            embeddings = [item.embedding for item in response.data]
+            embeddings = [data.embedding for data in response.data]
+
+            return embeddings
+        except Exception as ex:
+            logger.exception(f"Error generating embeddings: {ex}")
+            raise TextEmbeddingError(f"Failed to generate embeddings: {str(ex)}")
             
-            # Calculate usage
-            usage = self._calc_response_usage(
-                model=model, credentials=credentials, tokens=used_tokens
+    def validate_credentials(self, model: str, credentials: dict) -> None:
+        """
+        Validate model credentials
+
+        :param model: model name
+        :param credentials: model credentials
+        :return:
+        """
+        try:
+            base_url = credentials.get("base_url", "")
+            if not base_url:
+                raise CredentialsValidateFailedError("Base URL is required")
+
+            if not base_url.endswith("/"):
+                base_url += "/"
+
+            # Use requests to verify connection
+            response = requests.get(
+                urljoin(base_url, "v1/models"),
+                timeout=10  # Increased timeout for remote URLs
             )
-            
-            return TextEmbeddingResult(embeddings=embeddings, usage=usage, model=model)
-            
-        except Exception as e:
-            # Map error to appropriate type
-            raise self._invoke_error_mapping(e)
+
+            if response.status_code != 200:
+                raise CredentialsValidateFailedError(
+                    f"Failed to connect to LM Studio server: {response.status_code}"
+                )
+        except requests.exceptions.RequestException as ex:
+            # Handle network errors more specifically
+            raise CredentialsValidateFailedError(f"Connection error: {str(ex)}")
+        except Exception as ex:
+            raise CredentialsValidateFailedError(str(ex))
 
     def get_num_tokens(
         self, model: str, credentials: dict, texts: list[str]
@@ -117,46 +131,6 @@ class LmstudioEmbeddingModel(TextEmbeddingModel):
         :return: list of token counts for each text
         """
         return [self._get_num_tokens_by_gpt2(text) for text in texts]
-
-    def validate_credentials(self, model: str, credentials: dict) -> None:
-        """
-        Validate model credentials
-
-        :param model: model name
-        :param credentials: model credentials
-        :return: None if valid, raises exception otherwise
-        """
-        try:
-            # Verify base URL
-            base_url = credentials.get("base_url", "")
-            if not base_url:
-                raise CredentialsValidateFailedError("Base URL is required")
-                
-            if not base_url.endswith("/"):
-                base_url += "/"
-                
-            # Use requests to check connection
-            response = requests.get(
-                urljoin(base_url, "v1/models"),
-                timeout=5
-            )
-            
-            if response.status_code != 200:
-                raise CredentialsValidateFailedError(
-                    f"Failed to connect to LM Studio server: {response.status_code}"
-                )
-                
-            # Try a simple embedding request to validate
-            self._invoke(model=model, credentials=credentials, texts=["ping"])
-            
-        except InvokeError as ex:
-            raise CredentialsValidateFailedError(
-                f"An error occurred during credentials validation: {ex.description}"
-            )
-        except Exception as ex:
-            raise CredentialsValidateFailedError(
-                f"An error occurred during credentials validation: {str(ex)}"
-            )
 
     def get_customizable_model_schema(
         self, model: str, credentials: dict
@@ -276,4 +250,73 @@ class LmstudioEmbeddingModel(TextEmbeddingModel):
         :param credentials: model credentials
         :return: context size
         """
-        return int(credentials.get("context_size", 4096)) 
+        return int(credentials.get("context_size", 4096))
+
+    def _invoke(
+        self,
+        model: str,
+        credentials: dict,
+        texts: list[str],
+        user: Optional[str] = None,
+        input_type: EmbeddingInputType = EmbeddingInputType.DOCUMENT,
+    ) -> TextEmbeddingResult:
+        """
+        Invoke text embedding model
+
+        :param model: model name
+        :param credentials: model credentials
+        :param texts: texts to embed
+        :param user: unique user id
+        :param input_type: input type
+        :return: embeddings result
+        """
+        # Set up base URL
+        base_url = credentials.get("base_url", "")
+        if base_url and not base_url.endswith("/"):
+            base_url += "/"
+        
+        # Calculate tokens before potentially truncating
+        embedding_used_tokens = self.get_num_tokens(model, credentials, texts)
+        used_tokens = sum(embedding_used_tokens)
+        
+        # Process embeddings
+        context_size = self._get_context_size(model, credentials)
+        processed_texts = []
+        
+        # Truncate texts if they exceed context size
+        for text, num_tokens in zip(texts, embedding_used_tokens):
+            if num_tokens >= context_size:
+                cutoff = int(np.floor(len(text) * (context_size / num_tokens)))
+                processed_texts.append(text[0:cutoff])
+            else:
+                processed_texts.append(text)
+        
+        # Get embeddings through OpenAI compatible endpoint
+        try:
+            # Configure OpenAI-compatible client for LM Studio
+            from openai import OpenAI
+            import os
+            
+            # Set the base URL through environment variables (more compatible with remote URLs)
+            os.environ["OPENAI_BASE_URL"] = f"{base_url}v1"
+            client = OpenAI(api_key="lm-studio")  # No need to pass base_url directly
+            
+            response = client.embeddings.create(
+                model=model,
+                input=processed_texts,
+                encoding_format="float"
+            )
+            
+            # Extract embeddings from response
+            embeddings = [item.embedding for item in response.data]
+            
+            # Calculate usage
+            usage = self._calc_response_usage(
+                model=model, credentials=credentials, tokens=used_tokens
+            )
+            
+            return TextEmbeddingResult(embeddings=embeddings, usage=usage, model=model)
+            
+        except Exception as e:
+            # Map error to appropriate type
+            raise self._invoke_error_mapping(e) 

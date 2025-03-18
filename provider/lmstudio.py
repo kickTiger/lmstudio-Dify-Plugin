@@ -28,15 +28,27 @@ class LmstudioModelProvider(ModelProvider):
                 base_url += "/"
 
             # Try to connect to LM Studio server
-            response = requests.get(
-                urljoin(base_url, "v1/models"),
-                timeout=5
-            )
-            
-            if response.status_code != 200:
-                raise CredentialsValidateFailedError(
-                    f"Failed to connect to LM Studio server: {response.status_code}"
+            try:
+                response = requests.get(
+                    urljoin(base_url, "v1/models"),
+                    timeout=10  # Increased timeout for remote URLs
                 )
+                
+                if response.status_code != 200:
+                    raise CredentialsValidateFailedError(
+                        f"Failed to connect to LM Studio server: {response.status_code}"
+                    )
+            except requests.exceptions.Timeout:
+                raise CredentialsValidateFailedError(
+                    "Connection timed out. If you are using a remote URL, ensure it is accessible and correctly configured."
+                )
+            except requests.exceptions.ConnectionError:
+                raise CredentialsValidateFailedError(
+                    "Failed to establish connection. Please check if the URL is correct and the server is running."
+                )
+            except requests.exceptions.RequestException as ex:
+                raise CredentialsValidateFailedError(f"Connection error: {str(ex)}")
+                
         except CredentialsValidateFailedError as ex:
             raise ex
         except Exception as ex:
