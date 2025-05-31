@@ -726,13 +726,24 @@ class LmstudioLargeLanguageModel(LargeLanguageModel):
 
         :return: model schema
         """
+        # Get mode from credentials
+        mode = credentials.get("mode", "chat")
+        
+        # Get other properties from credentials
+        context_size = int(credentials.get("context_size", 4096))
+        max_tokens = int(credentials.get("max_tokens", 4096))
+        
         entity = AIModelEntity(
             model=model,
             label=I18nObject(zh_Hans=model, en_US=model),
             model_type=ModelType.LLM,
             features=[],
             fetch_from=FetchFrom.CUSTOMIZABLE_MODEL,
-            model_properties={},
+            model_properties={
+                "mode": mode,
+                "context_size": context_size,
+                "max_tokens": max_tokens,
+            },
             parameter_rules=[],
         )
 
