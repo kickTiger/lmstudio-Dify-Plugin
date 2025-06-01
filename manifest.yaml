@@ -1,13 +1,13 @@
 author: kickTiger
 created_at: '2023-12-20T10:00:00.000000Z'
 description:
-  en_US: Deploy local models using LM Studio
-  zh_Hans: 使用LM Studio部署本地模型
-  ja_JP: LM Studio を使用してローカルモデルをデプロイ
+  en_US: Deploy local models using LM Studio - Fixed version by kickTiger
+  zh_Hans: 使用LM Studio部署本地模型 - kickTiger修复版
+  ja_JP: LM Studio を使用してローカルモデルをデプロイ - kickTiger修正版
 icon: icon.webp
 label:
-  en_US: LM Studio
-  zh_Hans: LM Studio
+  en_US: LM Studio (kickTiger)
+  zh_Hans: LM Studio (kickTiger)
 meta:
   arch:
   - amd64
@@ -17,7 +17,7 @@ meta:
     language: python
     version: '3.10'
   version: 0.0.4
-name: lmstudio
+name: lmstudio-kicktiger
 plugins:
   models:
   - provider/lmstudio.yaml

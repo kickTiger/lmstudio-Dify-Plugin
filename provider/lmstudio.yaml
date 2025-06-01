@@ -16,7 +16,7 @@ help:
     zh_Hans: "如何集成 LM Studio"
     ja_JP: "LM Studioとの統合方法"
   url:
-    en_US: "https://github.com/stvlynn/lmstudio-Dify-Plugin"
+    en_US: "https://github.com/kickTiger/lmstudio-Dify-Plugin"
 supported_model_types:
   - llm
   - text-embedding

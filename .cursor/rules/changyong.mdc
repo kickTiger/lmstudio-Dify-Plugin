@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+## 项目说明
+这个是 dify 软件的插件项目，我们可以参考的文档如下：
+- development-tools https://docs.dify.ai/plugin-dev-zh/0221-initialize-development-tools
+- https://docs.dify.ai/plugin-dev-zh/0322-release-to-individual-github-repo
+- https://docs.dify.ai/plugin-dev-zh/0221-initialize-development-tools
+- [Dify Plugin 开发速查表](mdc:https:/docs.dify.ai/plugin-dev-zh/0131-cheatsheet)
+- [通用规范定义]https://docs.dify.ai/plugin-dev-zh/0411-general-specifications
+
+在本地可以使用dify 插件 CLI 工具进行开发，Dify 插件 CLI 工具又称为 dify-plugin-daemon，可以被视作插件开发 SDK。
+
+## 项目自定义文档
+[项目分析.md](mdc:项目分析.md)
+@知识库.md
