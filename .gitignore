@@ -169,3 +169,7 @@ cython_debug/
 
 # Vscode
 .vscode/
+
+# 其他文件
+知识库.md
+项目分析.md
